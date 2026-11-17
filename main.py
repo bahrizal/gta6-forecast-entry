@@ -192,9 +192,21 @@ def forecast_case(case):
     """Five quantiles per hour for one case; returns the output object."""
     known = case.get("known") or []
     first_print = 1.0
-    if known:
+    # Hour 1 is the anchor for every ratio: find its row by hour number
+    # rather than trusting its position in the list.
+    hour_one = None
+    for row in known:
         try:
-            first_print = float(known[0]["viewers"])
+            if int(row.get("hour")) == 1:
+                hour_one = row
+                break
+        except (TypeError, ValueError):
+            continue
+    if hour_one is None and known:
+        hour_one = known[0]
+    if hour_one is not None:
+        try:
+            first_print = float(hour_one["viewers"])
         except (KeyError, TypeError, ValueError):
             first_print = 1.0
     if not (first_print > 0.0) or not math.isfinite(first_print):
@@ -278,7 +290,10 @@ def main():
             try:
                 with open(os.path.join(input_dir, name), "r", encoding="utf-8") as handle:
                     case = json.load(handle)
-                first_print = float((case.get("known") or [{}])[0].get("viewers") or 1.0)
+                rows = case.get("known") or []
+                hour_one = next((r for r in rows
+                                 if str(r.get("hour")) == "1"), rows[0] if rows else {})
+                first_print = float(hour_one.get("viewers") or 1.0)
             except Exception:
                 first_print = 1.0
             if not (first_print > 0.0) or not math.isfinite(first_print):
